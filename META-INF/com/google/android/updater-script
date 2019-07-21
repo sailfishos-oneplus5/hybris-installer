@@ -1,0 +1,32 @@
+# Version : %VERSION%
+# Image   : %IMAGE_FILE%
+# Size    : %IMAGE_SIZE%
+
+# >>> Initial sanity checks >>>
+
+# Device
+assert(getprop("ro.display.series") == "OnePlus 5" || abort("This package is for 'OnePlus 5' devices; this is a '" + getprop("ro.display.series") + "'."););
+
+# Firmware
+assert(oneplus.verify_modem("2018-11-06 18:11:36") == "1" || abort("OOS firmware 5.1.7 not present. Please upgrade your firmware and try again!"););
+
+# <<< Initial sanity checks <<<
+
+ui_print("Extracting archive files ...");
+package_extract_file("tar", "/tmp/tar");
+package_extract_file("%IMAGE_FILE%", "/tmp/sailfishos-rootfs.tar.bz2");
+package_extract_file("hybris-boot.img", "/tmp/hybris-boot.img");
+package_extract_file("custom-install.sh", "/tmp/custom-install.sh");
+
+ui_print("Initializing custom installation script ...");
+set_metadata("/tmp/custom-install.sh", "uid", 0, "gid", 0, "mode", 0755);
+
+# >>> Start custom-install.sh >>>
+
+set_progress(0);
+run_program("/tmp/custom-install.sh") == "0" || abort("Installation has failed! Check /tmp/recovery.log for details");
+
+# <<< Done custom-install.sh <<<
+
+# All done!
+set_progress(1);
