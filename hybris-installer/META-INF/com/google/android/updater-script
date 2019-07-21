@@ -1,5 +1,5 @@
 # Version : %VERSION%
-# Image   : %IMAGE_FILE%
+# Root FS : %IMAGE_FILE%
 # Size    : %IMAGE_SIZE%
 
 # >>> Initial sanity checks >>>
