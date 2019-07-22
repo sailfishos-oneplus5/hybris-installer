@@ -1,4 +1,4 @@
-# Version : %VERSION%
+# Release : v%VERSION%
 # Root FS : %IMAGE_FILE%
 # Size    : %IMAGE_SIZE%
 

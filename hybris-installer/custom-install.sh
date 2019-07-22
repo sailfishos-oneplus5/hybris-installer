@@ -69,6 +69,18 @@ mount -o rw /vendor || abort 4 "Couldn't mount /vendor!"
 
 # >>> Script start >>>
 
+# Calculate centering offset indent on left
+VERSION="%VERSION%" # e.g. "3.0.3.10 (Hossa)"
+target_len=`echo -n $VERSION | wc -m` # e.g. 16 for "3.0.3.10 (Hossa)"
+start=`expr 52 - 24 - $target_len` # e.g. 12
+start=`expr $start / 2` # e.g. 6
+log "indent offset is $start for '$TARGET_PRETTY'"
+
+indent=""
+for i in `seq 1 $start`; do
+	indent="${indent} "
+done
+
 # Splash
 ui_print " "
 ui_print "-===============- Hybris Installer -===============-"
@@ -94,7 +106,7 @@ ui_print "           .,oOOoc:'"
 ui_print "       .,:lddo:'."
 ui_print "      oxxo;."
 ui_print " "
-ui_print "    Sailfish OS release to be installed: %VERSION%"
+ui_print "${indent}Installing Sailfish OS v$VERSION"
 ui_print "                   Please wait ..."
 
 # Script
@@ -104,21 +116,25 @@ log "Patching TWRP's broken tar..."
 (cp /tmp/tar /sbin/tar && chmod 777 /sbin/tar) || abort 6 "Couldn't patch tar!"
 
 log "Extracting SFOS rootfs..."
-FS_ARC="/tmp/sailfishos-rootfs.tar.bz2"
-FS_DST="/data/.stowaways/sailfishos/"
-rm -rf $FS_DST
-mkdir -p $FS_DST
-tar --numeric-owner -xvjf $FS_ARC -C $FS_DST || abort 7 "Couldn't extract SFOS rootfs!"
-rm $FS_ARC
+ARCHIVE="/tmp/sailfishos-rootfs.tar.bz2"
+ROOT="/data/.stowaways/sailfishos"
+rm -rf $ROOT/
+mkdir -p $ROOT/
+tar --numeric-owner -xvjf $ARCHIVE -C $ROOT/ || abort 7 "Couldn't extract SFOS rootfs!"
+rm $ARCHIVE
 
-log "Disabling qti & time_daemon by default..."
-(sed -i "s/service qti.*/service qti \/vendor\/bin\/qti_HYBRIS_DISABLED/" /vendor/etc/init/hw/init.qcom.rc && sed -i "s/service time_daemon.*/service time_daemon \/vendor\/bin\/time_daemon_HYBRIS_DISABLED/" /vendor/etc/init/hw/init.qcom.rc) || log "Disabling qti & time_daemon failed!"
+log "Fixing up init scripts..."
+#???
+#    mkdir /dev/cpuset/camera-daemon
+#    copy /dev/cpuset/cpuset.cpus /dev/cpuset/camera-daemon/cpuset.cpus
+#    copy /dev/cpuset/cpuset.mems /dev/cpuset/camera-daemon/cpuset.mems
+(sed -e '/ro.hardware/s/^/#/g' -i $ROOT/init.rc && sed -e '/extraenv/s/^/#/g' -i $ROOT/init.rc && sed -e "s/\/cpus$/cpuset.cpus/g" -e "s/\/mems$/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i /vendor/etc/init/hw/init.target.performance.rc) || abort 8 "Couldn't fix-up init scripts!"
 
 log "Disabling forced encryption in vendor fstab..."
-sed -i "s/fileencryption/encryptable/" /vendor/etc/fstab.qcom || log "Disabling forced encryption failed!"
+sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom || log "Couldn't disable forced encryption!"
 
 log "Writing hybris-boot image..."
-dd if=/tmp/hybris-boot.img of=/dev/block/sde19 || abort 8 "Couldn't write Hybris boot image!"
+dd if=/tmp/hybris-boot.img of=/dev/block/sde19 || abort 9 "Couldn't write Hybris boot image!"
 
 log "Cleaning up..."
 umount /vendor &> /dev/null
