@@ -124,11 +124,7 @@ tar --numeric-owner -xvjf $ARCHIVE -C $ROOT/ || abort 7 "Couldn't extract SFOS r
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
-#???
-#    mkdir /dev/cpuset/camera-daemon
-#    copy /dev/cpuset/cpuset.cpus /dev/cpuset/camera-daemon/cpuset.cpus
-#    copy /dev/cpuset/cpuset.mems /dev/cpuset/camera-daemon/cpuset.mems
-(sed -e '/ro.hardware/s/^/#/g' -i $ROOT/init.rc && sed -e '/extraenv/s/^/#/g' -i $ROOT/init.rc && sed -e "s/\/cpus$/cpuset.cpus/g" -e "s/\/mems$/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i /vendor/etc/init/hw/init.target.performance.rc) || abort 8 "Couldn't fix-up init scripts!"
+(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g"  -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i /vendor/etc/init/hw/init.target.performance.rc) || abort 8 "Couldn't fix-up init scripts!"
 
 log "Disabling forced encryption in vendor fstab..."
 sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom || log "Couldn't disable forced encryption!"
