@@ -1,5 +1,5 @@
 # hybris-installer
-A visually appealing &amp; extensible custom Hybris installer (replaces default hybris-boot implementation)
+A visually appealing & extensible custom Hybris Installer script. This replaces the default hybris-boot installer script implementation & requires a [modified pack_package-droid-updater file](https://git.io/fjMQe) in your droid-configs which expects **this whole repo** to be cloned in `hybris/hybris-installer`. Feel free to fork and adapt to your device's needs!
 
 ### Screenshot
 

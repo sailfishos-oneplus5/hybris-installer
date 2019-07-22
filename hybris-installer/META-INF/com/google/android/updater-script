@@ -1,7 +1,3 @@
-# Release : v%VERSION%
-# Root FS : %IMAGE_FILE%
-# Size    : %IMAGE_SIZE%
-
 # >>> Initial sanity checks >>>
 
 # Device

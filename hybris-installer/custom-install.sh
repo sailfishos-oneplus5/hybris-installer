@@ -1,5 +1,10 @@
 #!/sbin/sh
-# This is a custom Hybris Installer script made by me.
+# An extensible custom Hybris Installer script.
+# https://git.io/fjMH9
+
+# Details about this version:
+#   Release : v%VERSION%
+#   Size    : ~%IMAGE_SIZE%
 
 # >>> Get TWRP output pipe fd >>>
 
@@ -63,7 +68,10 @@ fi
 # Android
 umount /vendor &> /dev/null
 mount -o rw /vendor || abort 4 "Couldn't mount /vendor!"
-[ -f /vendor/etc/init/hw/init.qcom.rc ] || abort 5 "Please install LineageOS before flashing this zip."
+umount /system &> /dev/null
+mount /system || abort 5 "Couldn't mount /system!"
+[[ "$(cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2)" = "15.1" && -f /vendor/etc/init/hw/init.qcom.rc ]] || abort 6 "Please factory reset & dirty flash LineageOS 15.1 before this zip."
+umount /system &> /dev/null
 
 # <<< Sanity checks <<<
 
@@ -111,26 +119,25 @@ ui_print "                   Please wait ..."
 
 # Script
 
-# TODO Fall back to swapfile if failed
 log "Patching TWRP's broken tar..."
-(cp /tmp/tar /sbin/tar && chmod 777 /sbin/tar) || abort 6 "Couldn't patch tar!"
+(cp /tmp/tar /sbin/tar && chmod 777 /sbin/tar) || abort 7 "Couldn't patch tar!"
 
 log "Extracting SFOS rootfs..."
 ARCHIVE="/tmp/sailfishos-rootfs.tar.bz2"
 ROOT="/data/.stowaways/sailfishos"
 rm -rf $ROOT/
 mkdir -p $ROOT/
-tar --numeric-owner -xvjf $ARCHIVE -C $ROOT/ || abort 7 "Couldn't extract SFOS rootfs!"
+tar --numeric-owner -xvjf $ARCHIVE -C $ROOT/ || abort 8 "Couldn't extract SFOS rootfs!"
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
-(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g"  -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i /vendor/etc/init/hw/init.target.performance.rc) || abort 8 "Couldn't fix-up init scripts!"
+(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g"  -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i /vendor/etc/init/hw/init.target.performance.rc) || abort 9 "Couldn't fix-up init scripts!"
 
 log "Disabling forced encryption in vendor fstab..."
 sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom || log "Couldn't disable forced encryption!"
 
 log "Writing hybris-boot image..."
-dd if=/tmp/hybris-boot.img of=/dev/block/sde19 || abort 9 "Couldn't write Hybris boot image!"
+dd if=/tmp/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 10 "Couldn't write Hybris boot image!"
 
 log "Cleaning up..."
 umount /vendor &> /dev/null
