@@ -37,6 +37,8 @@ ui_print() {
 
 # <<< Implement TWRP functions <<<
 
+INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
+
 # >>> Custom functions >>>
 
 # TODO Write to stderr if TWRP output in RED
@@ -57,12 +59,12 @@ log() {
 # >>> Sanity checks >>>
 
 # ext4 check for /cache & /data
-mount | grep /data | grep ext4 &> /dev/null || abort 1 "Data is not formatted as ext4!"
-mount | grep /cache | grep ext4 &> /dev/null || abort 2 "Cache is not formatted as ext4!"
+mount | grep /cache | grep ext4 &> /dev/null || abort 1 "Cache is not formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
+mount | grep /data | grep ext4 &> /dev/null || abort 2 "Data is not formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
 
 # Treble
 if [ ! -r /dev/block/bootdevice/by-name/vendor ]; then
-	abort 3 "Vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
+	abort 3 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
 fi
 
 # Android
@@ -70,12 +72,13 @@ umount /vendor &> /dev/null
 mount -o rw /vendor || abort 4 "Couldn't mount /vendor!"
 umount /system &> /dev/null
 mount /system || abort 5 "Couldn't mount /system!"
-[[ "$(cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2)" = "15.1" && -f /vendor/etc/init/hw/init.qcom.rc ]] || abort 6 "Please factory reset & dirty flash LineageOS 15.1 before this zip."
+[[ "$(cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2)" = "15.1" && -f $INIT_PERF ]] || abort 6 "Please factory reset & dirty flash LineageOS 15.1 before this zip."
 umount /system &> /dev/null
+[ -f $INIT_PERF.bak ] && abort 7 "This zip is NOT an OTA and should not be treated like one. Please reflash everything to ensure a proper fresh install!"
 
 # <<< Sanity checks <<<
 
-# >>> Script start >>>
+# >>> Script >>>
 
 # Calculate centering offset indent on left
 VERSION="%VERSION%" # e.g. "3.0.3.10 (Hossa)"
@@ -117,32 +120,37 @@ ui_print " "
 ui_print "${indent}Installing Sailfish OS v$VERSION"
 ui_print "                   Please wait ..."
 
-# Script
-
+# Start
 log "Patching TWRP's broken tar..."
-(cp /tmp/tar /sbin/tar && chmod 777 /sbin/tar) || abort 7 "Couldn't patch tar!"
+(cp /tmp/tar /sbin/tar && chmod 777 /sbin/tar) || abort 8 "Couldn't patch tar!"
 
 log "Extracting SFOS rootfs..."
 ARCHIVE="/tmp/sailfishos-rootfs.tar.bz2"
 ROOT="/data/.stowaways/sailfishos"
 rm -rf $ROOT/
 mkdir -p $ROOT/
-tar --numeric-owner -xvjf $ARCHIVE -C $ROOT/ || abort 8 "Couldn't extract SFOS rootfs!"
+tar --numeric-owner -xvjf $ARCHIVE -C $ROOT/ || abort 9 "Couldn't extract SFOS rootfs!"
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
-(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g"  -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i /vendor/etc/init/hw/init.target.performance.rc) || abort 9 "Couldn't fix-up init scripts!"
+cp $INIT_PERF $INIT_PERF.bak
+(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i $INIT_PERF) || abort 10 "Couldn't fix-up init scripts!"
+rm $ROOT/init.extraenv.armeabi-v7a.rc
 
 log "Disabling forced encryption in vendor fstab..."
 sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom || log "Couldn't disable forced encryption!"
 
+log "Backing up droid & hybris boot images..."
+dd if=/dev/block/bootdevice/by-name/boot of=/data/.stowaways/droid-boot.img
+cp /tmp/hybris-boot.img /data/.stowaways/hybris-boot.img
+
 log "Writing hybris-boot image..."
-dd if=/tmp/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 10 "Couldn't write Hybris boot image!"
+dd if=/tmp/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 11 "Couldn't write Hybris boot image!"
 
 log "Cleaning up..."
 umount /vendor &> /dev/null
 
-# <<< Script end <<<
+# <<< Script <<<
 
 # Succeeded.
 ui_print "            All done, enjoy your new OS!"
