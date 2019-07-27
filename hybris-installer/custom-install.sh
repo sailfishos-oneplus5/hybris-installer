@@ -3,7 +3,7 @@
 # https://git.io/fjMH9
 
 # Details about this version:
-#   Release : v%VERSION%
+#   Release : %VERSION%
 #   Size    : ~%IMAGE_SIZE%
 
 # >>> Get TWRP output pipe fd >>>
@@ -83,7 +83,7 @@ umount /system &> /dev/null
 # Calculate centering offset indent on left
 VERSION="%VERSION%" # e.g. "3.0.3.10 (Hossa)"
 target_len=`echo -n $VERSION | wc -m` # e.g. 16 for "3.0.3.10 (Hossa)"
-start=`expr 52 - 24 - $target_len` # e.g. 12
+start=`expr 52 - 23 - $target_len` # e.g. 13
 start=`expr $start / 2` # e.g. 6
 log "indent offset is $start for '$TARGET_PRETTY'"
 
@@ -117,7 +117,7 @@ ui_print "           .,oOOoc:'"
 ui_print "       .,:lddo:'."
 ui_print "      oxxo;."
 ui_print " "
-ui_print "${indent}Installing Sailfish OS v$VERSION"
+ui_print "${indent}Installing Sailfish OS $VERSION"
 ui_print "                   Please wait ..."
 
 # Start
