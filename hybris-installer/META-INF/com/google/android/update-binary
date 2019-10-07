@@ -8,19 +8,15 @@
 
 # >>> TWRP init >>>
 
-OUTFD="" # e.g. "/proc/self/fd/28"
+OUTFD="/proc/self/fd/$2" # e.g. "/proc/self/fd/28"
+ZIPFILE="$3"             # e.g. "/sdcard/sailfishos-3.1.0.12-20191007-cheeseburger.zip"
+FILES="/tmp/hybris-installer"
 
-# Temporary: Find TWRP screen output FD for logging to it from here
-for FD in `ls /proc/$$/fd`; do
-	readlink /proc/$$/fd/$FD 2>/dev/null | grep pipe >/dev/null
-	if [ "$?" -eq "0" ]; then
-		ps | grep " 3 $FD " | grep -v grep >/dev/null
-		if [ "$?" -eq "0" ]; then
-			OUTFD="/proc/self/fd/$FD"
-			break
-		fi
-	fi
-done
+# Remove package residue files from /tmp
+cleanup() {
+	log "Cleanup performed."
+	rm -rf $FILES/
+}
 
 # Print some text ($1) on the screen
 ui_print() {
@@ -30,6 +26,7 @@ ui_print() {
 # Before quitting with an exit code ($1), show a message ($2)
 abort() {
 	ui_print "E$1: $2"
+	cleanup
 	exit $1
 }
 
@@ -39,17 +36,22 @@ abort() {
 
 # Log some text ($1) for script debugging
 log() {
-	echo "custom-install: $@"
+	echo "hybris-installer: $@"
 }
 
 # <<< Custom functions <<<
 
-# Constants
+# Constants & variables
 VERSION="%VERSION%" # e.g. "3.1.0.12 (Seitseminen)"
 TARGET_LOS_VER="15.1"
+TARGET_DEVICE="OnePlus 5"
+CURRENT_DEVICE=`getprop ro.display.series`
 INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
 
 # >>> Sanity checks >>>
+
+# Device
+[ "$CURRENT_DEVICE" != "$TARGET_DEVICE" ] && abort 7 "This package is for '$TARGET_DEVICE' devices; this is a '$CURRENT_DEVICE'."
 
 # ext4 check for /cache & /data
 mount | grep /cache | grep ext4 &> /dev/null || abort 1 "Cache is not formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
@@ -76,7 +78,7 @@ umount /system &> /dev/null
 # Calculate centering offset indent on left
 offset=`echo -n $VERSION | wc -m` # Character length of the version string
 offset=`expr 52 - 23 - $offset`   # Remove constant string chars from offset calculation
-offset=`expr $start / 2`          # Get left offset char count instead of space on both sides
+offset=`expr $offset / 2`          # Get left offset char count instead of space on both sides
 
 # Build the left side indentation offset string
 for i in `seq 1 $offset`; do indent="${indent} "; done
@@ -110,11 +112,15 @@ ui_print "${indent}Installing Sailfish OS $VERSION"
 ui_print "                   Please wait ..."
 
 # Start
+log "Extracting package '$ZIPFILE'..."
+mkdir -p $FILES/
+unzip -o "$ZIPFILE" -x META-INF/* -d $FILES/
+
 log "Patching TWRP's broken tar..."
-(cp /tmp/tar /sbin/tar && chmod 777 /sbin/tar) || abort 8 "Couldn't patch tar!"
+(cp $FILES/tar /sbin/tar && chmod 777 /sbin/tar) || abort 8 "Couldn't patch tar!"
 
 log "Extracting SFOS rootfs..."
-ARCHIVE="/tmp/sfos-rootfs.tar.bz2"
+ARCHIVE="$FILES/sfos-rootfs.tar.bz2"
 ROOT="/data/.stowaways/sailfishos"
 rm -rf $ROOT/
 mkdir -p $ROOT/
@@ -136,6 +142,7 @@ log "Switching to hybris-boot image..."
 dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 10 "Couldn't write Hybris boot image!"
 
 log "Cleaning up..."
+cleanup
 umount /vendor &> /dev/null
 
 # <<< Script <<<
