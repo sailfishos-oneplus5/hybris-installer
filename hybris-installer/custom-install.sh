@@ -46,8 +46,8 @@ log() {
 
 # Constants
 VERSION="%VERSION%" # e.g. "3.1.0.12 (Seitseminen)"
-INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
 TARGET_LOS_VER="15.1"
+INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
 
 # >>> Sanity checks >>>
 
@@ -65,7 +65,7 @@ umount /vendor &> /dev/null
 mount -o rw /vendor || abort 4 "Couldn't mount /vendor!"
 umount /system &> /dev/null
 mount /system || abort 5 "Couldn't mount /system!"
-[[ "$(cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2)" = "$TARGET_LOS_VER" && -f $INIT_PERF ]] || abort 6 "Please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip."
+[[ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` = "$TARGET_LOS_VER" && -f $INIT_PERF ]] || abort 6 "Please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip."
 umount /system &> /dev/null
 [ -f $INIT_PERF.bak ] && abort 7 "This zip is NOT an OTA and should not be treated like one. Please reflash everything to ensure a proper fresh install!"
 

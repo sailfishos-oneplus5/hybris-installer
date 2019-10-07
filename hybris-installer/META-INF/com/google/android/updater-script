@@ -10,7 +10,6 @@ set_progress(0);
 # >>> custom-install.sh >>>
 
 package_extract_file("%IMAGE_FILE%", "/tmp/sfos-rootfs.tar.bz2");
-package_extract_file("hybris-boot.img", "/tmp/hybris-boot.img");
 package_extract_file("tar", "/tmp/tar");
 package_extract_file("custom-install.sh", "/tmp/custom-install.sh");
 set_metadata("/tmp/custom-install.sh", "uid", 0, "gid", 0, "mode", 0755);
