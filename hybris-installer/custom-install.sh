@@ -6,55 +6,48 @@
 #   Release : %VERSION%
 #   Size    : ~%IMAGE_SIZE%
 
-# >>> Get TWRP output pipe fd >>>
+# >>> TWRP init >>>
 
-OUTFD=0
+OUTFD="" # e.g. "/proc/self/fd/28"
 
-# we are probably running in embedded mode, see if we can find the right fd
-# we know the fd is a pipe and that the parent updater may have been started as
-# 'update-binary 3 fd zipfile'
+# Temporary: Find TWRP screen output FD for logging to it from here
 for FD in `ls /proc/$$/fd`; do
 	readlink /proc/$$/fd/$FD 2>/dev/null | grep pipe >/dev/null
 	if [ "$?" -eq "0" ]; then
 		ps | grep " 3 $FD " | grep -v grep >/dev/null
 		if [ "$?" -eq "0" ]; then
-			OUTFD=$FD
+			OUTFD="/proc/self/fd/$FD"
 			break
 		fi
 	fi
 done
 
-# <<< Get TWRP output pipe fd <<<
-
-# >>> Implement TWRP functions >>>
-
+# Print some text ($1) on the screen
 ui_print() {
-	echo -en "ui_print $1\n" >> /proc/self/fd/$OUTFD
-	echo -en "ui_print\n" >> /proc/self/fd/$OUTFD
+	[ -z "$1" ] && echo -e "ui_print  \nui_print" > $OUTFD || echo -e "ui_print $@\nui_print" > $OUTFD
 }
 
-# TODO: Implement show_progress function
-
-# <<< Implement TWRP functions <<<
-
-INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
-
-# >>> Custom functions >>>
-
-# TODO Write to stderr if TWRP output in RED
-
-# Write error message & exit.
-# args: 1=errcode, 2=msg
+# Before quitting with an exit code ($1), show a message ($2)
 abort() {
-	ui_print "$2"
+	ui_print "E$1: $2"
 	exit $1
 }
 
+# <<< TWRP init <<<
+
+# >>> Custom functions >>>
+
+# Log some text ($1) for script debugging
 log() {
 	echo "custom-install: $@"
 }
 
 # <<< Custom functions <<<
+
+# Constants
+VERSION="%VERSION%" # e.g. "3.1.0.12 (Seitseminen)"
+INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
+TARGET_LOS_VER="15.1"
 
 # >>> Sanity checks >>>
 
@@ -72,7 +65,7 @@ umount /vendor &> /dev/null
 mount -o rw /vendor || abort 4 "Couldn't mount /vendor!"
 umount /system &> /dev/null
 mount /system || abort 5 "Couldn't mount /system!"
-[[ "$(cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2)" = "15.1" && -f $INIT_PERF ]] || abort 6 "Please factory reset & dirty flash LineageOS 15.1 before this zip."
+[[ "$(cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2)" = "$TARGET_LOS_VER" && -f $INIT_PERF ]] || abort 6 "Please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip."
 umount /system &> /dev/null
 [ -f $INIT_PERF.bak ] && abort 7 "This zip is NOT an OTA and should not be treated like one. Please reflash everything to ensure a proper fresh install!"
 
@@ -81,21 +74,17 @@ umount /system &> /dev/null
 # >>> Script >>>
 
 # Calculate centering offset indent on left
-VERSION="%VERSION%" # e.g. "3.0.3.10 (Hossa)"
-target_len=`echo -n $VERSION | wc -m` # e.g. 16 for "3.0.3.10 (Hossa)"
-start=`expr 52 - 23 - $target_len` # e.g. 13
-start=`expr $start / 2` # e.g. 6
-log "indent offset is $start for '$TARGET_PRETTY'"
+offset=`echo -n $VERSION | wc -m` # Character length of the version string
+offset=`expr 52 - 23 - $offset`   # Remove constant string chars from offset calculation
+offset=`expr $start / 2`          # Get left offset char count instead of space on both sides
 
-indent=""
-for i in `seq 1 $start`; do
-	indent="${indent} "
-done
+# Build the left side indentation offset string
+for i in `seq 1 $offset`; do indent="${indent} "; done
 
 # Splash
-ui_print " "
+ui_print
 ui_print "-===============- Hybris Installer -===============-"
-ui_print " "
+ui_print
 ui_print "                          .':oOl."
 ui_print "                       ':c::;ol."
 ui_print "                    .:do,   ,l."
@@ -116,7 +105,7 @@ ui_print "              .;llcldl,"
 ui_print "           .,oOOoc:'"
 ui_print "       .,:lddo:'."
 ui_print "      oxxo;."
-ui_print " "
+ui_print
 ui_print "${indent}Installing Sailfish OS $VERSION"
 ui_print "                   Please wait ..."
 
@@ -125,7 +114,7 @@ log "Patching TWRP's broken tar..."
 (cp /tmp/tar /sbin/tar && chmod 777 /sbin/tar) || abort 8 "Couldn't patch tar!"
 
 log "Extracting SFOS rootfs..."
-ARCHIVE="/tmp/sailfishos-rootfs.tar.bz2"
+ARCHIVE="/tmp/sfos-rootfs.tar.bz2"
 ROOT="/data/.stowaways/sailfishos"
 rm -rf $ROOT/
 mkdir -p $ROOT/
@@ -134,18 +123,17 @@ rm $ARCHIVE
 
 log "Fixing up init scripts..."
 cp $INIT_PERF $INIT_PERF.bak
-(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i $INIT_PERF) || abort 10 "Couldn't fix-up init scripts!"
 rm $ROOT/init.extraenv.armeabi-v7a.rc
+(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i $INIT_PERF) || log "Couldn't fix-up init scripts!"
 
 log "Disabling forced encryption in vendor fstab..."
 sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom || log "Couldn't disable forced encryption!"
 
-log "Backing up droid & hybris boot images..."
-dd if=/dev/block/bootdevice/by-name/boot of=/data/.stowaways/droid-boot.img
-cp /tmp/hybris-boot.img /data/.stowaways/hybris-boot.img
+log "Backing up droid-boot image..."
+dd if=/dev/block/bootdevice/by-name/boot of=$ROOT/boot/droid-boot.img
 
-log "Writing hybris-boot image..."
-dd if=/tmp/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 11 "Couldn't write Hybris boot image!"
+log "Switching to hybris-boot image..."
+dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 10 "Couldn't write Hybris boot image!"
 
 log "Cleaning up..."
 umount /vendor &> /dev/null
@@ -154,5 +142,5 @@ umount /vendor &> /dev/null
 
 # Succeeded.
 ui_print "            All done, enjoy your new OS!"
-ui_print " "
+ui_print
 exit 0
