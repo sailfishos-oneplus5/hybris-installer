@@ -67,8 +67,7 @@ umount /vendor &> /dev/null
 mount -o rw /vendor || abort 4 "Couldn't mount /vendor!"
 umount /system &> /dev/null
 mount /system || abort 5 "Couldn't mount /system!"
-[[ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` = "$TARGET_LOS_VER" && -f $INIT_PERF ]] || abort 6 "Please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip."
-umount /system &> /dev/null
+[[ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` = "$TARGET_LOS_VER" && -f $INIT_PERF && -f /system/bin/toybox ]] || abort 6 "Please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip."
 [ -f $INIT_PERF.bak ] && abort 7 "This zip is NOT an OTA and should not be treated like one. Please reflash everything to ensure a proper fresh install!"
 
 # <<< Sanity checks <<<
@@ -116,15 +115,12 @@ log "Extracting package '$ZIPFILE'..."
 mkdir -p $FILES/
 unzip -o "$ZIPFILE" -x META-INF/* -d $FILES/
 
-log "Patching TWRP's broken tar..."
-(cp $FILES/tar /sbin/tar && chmod 777 /sbin/tar) || abort 8 "Couldn't patch tar!"
-
 log "Extracting SFOS rootfs..."
 ARCHIVE="$FILES/sfos-rootfs.tar.bz2"
 ROOT="/data/.stowaways/sailfishos"
 rm -rf $ROOT/
 mkdir -p $ROOT/
-tar --numeric-owner -xvjf $ARCHIVE -C $ROOT/ || abort 9 "Couldn't extract SFOS rootfs!"
+/system/bin/toybox tar -xj -f $ARCHIVE -C $ROOT/ || abort 8 "Couldn't extract SFOS rootfs!"
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
@@ -139,11 +135,12 @@ log "Backing up droid-boot image..."
 dd if=/dev/block/bootdevice/by-name/boot of=$ROOT/boot/droid-boot.img
 
 log "Switching to hybris-boot image..."
-dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 10 "Couldn't write Hybris boot image!"
+dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 9 "Couldn't write Hybris boot image!"
 
 log "Cleaning up..."
 cleanup
 umount /vendor &> /dev/null
+umount /system &> /dev/null
 
 # <<< Script <<<
 
