@@ -14,32 +14,24 @@ OUTFD="/proc/self/fd/$2" # e.g. "/proc/self/fd/28"
 ZIPFILE="$3"             # e.g. "/sdcard/%DST_PKG%.zip"
 FILES="/tmp/hybris-installer"
 
-# Remove package residue files from /tmp
-cleanup() {
-	log "Cleanup performed."
-	rm -rf $FILES/
-}
+# Set progress bar percentage using a fraction ($1) in range 0.00 - 1.00
+set_progress() { echo -e "set_progress $1\n" > $OUTFD; }
 
 # Print some text ($1) on the screen
-ui_print() {
-	[ -z "$1" ] && echo -e "ui_print  \nui_print" > $OUTFD || echo -e "ui_print $@\nui_print" > $OUTFD
-}
+ui_print() { [ -z "$1" ] && echo -e "ui_print  \nui_print" > $OUTFD || echo -e "ui_print $@\nui_print" > $OUTFD; }
+
+# Remove package residue files from /tmp and unmount partitions
+cleanup() { log "Cleaning up..."; umount /vendor &> /dev/null; umount /system &> /dev/null; rm -rf $FILES/; }
 
 # Before quitting with an exit code ($1), show a message ($2)
-abort() {
-	ui_print "E$1: $2"
-	cleanup
-	exit $1
-}
+abort() { ui_print "E$1: $2"; cleanup; exit $1; }
 
 # <<< TWRP init <<<
 
 # >>> Custom functions >>>
 
 # Log some text ($1) for script debugging
-log() {
-	echo "hybris-installer: $@"
-}
+log() { echo "hybris-installer: $@"; }
 
 # <<< Custom functions <<<
 
@@ -60,9 +52,7 @@ mount | grep /cache | grep ext4 &> /dev/null || abort 1 "Cache is not formatted 
 mount | grep /data | grep ext4 &> /dev/null || abort 2 "Data is not formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
 
 # Treble
-if [ ! -r /dev/block/bootdevice/by-name/vendor ]; then
-	abort 3 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
-fi
+[ -r /dev/block/bootdevice/by-name/vendor ] || abort 3 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
 
 # Android
 umount /vendor &> /dev/null
@@ -75,6 +65,9 @@ mount /system || abort 5 "Couldn't mount /system!"
 # <<< Sanity checks <<<
 
 # >>> Script >>>
+
+# Reset shown progress bar to 0%
+set_progress 0
 
 # Calculate centering offset indent on left
 offset=`echo -n $VERSION | wc -m` # Character length of the version string
@@ -136,17 +129,14 @@ sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom || log "Couldn't d
 log "Backing up droid-boot image..."
 dd if=/dev/block/bootdevice/by-name/boot of=$ROOT/boot/droid-boot.img
 
-log "Switching to hybris-boot image..."
+log "Writing hybris-boot image..."
 dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 9 "Couldn't write Hybris boot image!"
-
-log "Cleaning up..."
-cleanup
-umount /vendor &> /dev/null
-umount /system &> /dev/null
 
 # <<< Script <<<
 
 # Succeeded.
+log "Sailfish OS installed successfully."
 ui_print "            All done, enjoy your new OS!"
 ui_print
+cleanup
 exit 0
