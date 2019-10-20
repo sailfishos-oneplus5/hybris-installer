@@ -20,6 +20,9 @@ set_progress() { echo -e "set_progress $1\n" > $OUTFD; }
 # Print some text ($1) on the screen
 ui_print() { [ -z "$1" ] && echo -e "ui_print  \nui_print" > $OUTFD || echo -e "ui_print $@\nui_print" > $OUTFD; }
 
+# Log some text ($1) for script debugging
+log() { echo "hybris-installer: $@"; }
+
 # Remove package residue files from /tmp and unmount partitions
 cleanup() { log "Cleaning up..."; umount /vendor &> /dev/null; umount /system &> /dev/null; rm -rf $FILES/; }
 
@@ -27,13 +30,6 @@ cleanup() { log "Cleaning up..."; umount /vendor &> /dev/null; umount /system &>
 abort() { ui_print "E$1: $2"; cleanup; exit $1; }
 
 # <<< TWRP init <<<
-
-# >>> Custom functions >>>
-
-# Log some text ($1) for script debugging
-log() { echo "hybris-installer: $@"; }
-
-# <<< Custom functions <<<
 
 # Constants & variables
 VERSION="%VERSION%" # e.g. "3.1.0.12 (Seitseminen)"
