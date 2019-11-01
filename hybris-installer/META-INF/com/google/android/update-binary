@@ -24,7 +24,7 @@ ui_print() { [ -z "$1" ] && echo -e "ui_print  \nui_print" > $OUTFD || echo -e "
 log() { echo "hybris-installer: $@"; }
 
 # Remove package residue files from /tmp and unmount partitions
-cleanup() { log "Cleaning up..."; umount /vendor &> /dev/null; umount /system &> /dev/null; rm -rf $FILES/; }
+cleanup() { log "Cleaning up..."; umount /system; rm -rf $FILES/; }
 
 # Before quitting with an exit code ($1), show a message ($2)
 abort() { ui_print "E$1: $2"; cleanup; exit $1; }
@@ -32,11 +32,11 @@ abort() { ui_print "E$1: $2"; cleanup; exit $1; }
 # <<< TWRP init <<<
 
 # Constants & variables
-VERSION="%VERSION%" # e.g. "3.1.0.12 (Seitseminen)"
+VERSION="%VERSION%" # e.g. "3.2.0.12 (Torronsuo)"
 TARGET_LOS_VER="%LOS_VER%" # e.g. "16.0"
 TARGET_DEVICE="%DEVICE%" # e.g. "cheeseburger"
 CURRENT_DEVICE=`getprop ro.product.device`
-INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
+ROOT="/data/.stowaways/sailfishos"
 
 # >>> Sanity checks >>>
 
@@ -44,19 +44,32 @@ INIT_PERF="/vendor/etc/init/hw/init.target.performance.rc"
 [ "$CURRENT_DEVICE" != "$TARGET_DEVICE" ] && abort 7 "This package is for '$TARGET_DEVICE' devices; this is a '$CURRENT_DEVICE'."
 
 # ext4 check for /cache & /data
-mount | grep /cache | grep ext4 &> /dev/null || abort 1 "Cache is not formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
-mount | grep /data | grep ext4 &> /dev/null || abort 2 "Data is not formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
+(mount | grep -q /cache || mount /cache) || abort 1 "Couldn't mount /cache!"
+mount | grep -q "/cache.*ext4" || abort 2 "Cache is NOT formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
+(mount | grep -q /data || mount /data) || abort 3 "Couldn't mount /data; running e2fsck and rebooting may help."
+mount | grep -q "/data.*ext4" || abort 4 "Data is NOT formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
 
 # Treble
-[ -r /dev/block/bootdevice/by-name/vendor ] || abort 3 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
+[ -r /dev/block/bootdevice/by-name/vendor ] || abort 5 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
 
 # Android
-umount /vendor &> /dev/null
-mount -o rw /vendor || abort 4 "Couldn't mount /vendor!"
-umount /system &> /dev/null
-mount /system || abort 5 "Couldn't mount /system!"
-[[ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` = "$TARGET_LOS_VER" && -f $INIT_PERF && -f /system/bin/toybox ]] || abort 6 "Please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip."
-[ -f $INIT_PERF.bak ] && abort 7 "This zip is NOT an OTA and should not be treated like one. Please reflash everything to ensure a proper fresh install!"
+(mount | grep -q /system || mount /system) || abort 6 "Couldn't mount /system!"
+if [ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` = "$TARGET_LOS_VER" ]; then
+	if [ ! -f $FILES/flash_confirm ]; then
+		touch $FILES/flash_confirm
+		abort 8 "If you don't know what you're doing: please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip. Otherwise reflash again to confirm force flashing of SFOS."
+	fi
+	log "About to perform forced flash of SFOS"
+fi
+[ -f /system/bin/toybox ] || abort 9 "Your ROM doesn't ship with toybox; extracting of SFOS rootfs isn't possible!"
+if [ -f $ROOT/etc/os-release ]; then
+	if [ ! -f $FILES/fresh_confirm ]; then
+		touch $FILES/fresh_confirm
+		abort 10 "This zip is NOT an OTA and should not be treated like one. Please reflash once more to confirm a full SFOS reinstall!"
+	fi
+	log "About to perform forced reinstall of SFOS"
+fi
+rm -f $FILES/f{la,re}sh_confirm
 
 # <<< Sanity checks <<<
 
@@ -68,7 +81,7 @@ set_progress 0
 # Calculate centering offset indent on left
 offset=`echo -n $VERSION | wc -m` # Character length of the version string
 offset=`expr 52 - 23 - $offset`   # Remove constant string chars from offset calculation
-offset=`expr $offset / 2`          # Get left offset char count instead of space on both sides
+offset=`expr $offset / 2`         # Get left offset char count instead of space on both sides
 
 # Build the left side indentation offset string
 for i in `seq 1 $offset`; do indent="${indent} "; done
@@ -108,25 +121,24 @@ unzip -o "$ZIPFILE" -x META-INF/* -d $FILES/
 
 log "Extracting SFOS rootfs..."
 ARCHIVE="$FILES/sfos-rootfs.tar.bz2"
-ROOT="/data/.stowaways/sailfishos"
 rm -rf $ROOT/
 mkdir -p $ROOT/
-/system/bin/toybox tar -xj -f $ARCHIVE -C $ROOT/ || abort 8 "Couldn't extract SFOS rootfs!"
+/system/bin/toybox tar -xj -f $ARCHIVE -C $ROOT/ || abort 11 "Couldn't extract SFOS rootfs!"
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
-cp $INIT_PERF $INIT_PERF.bak
+sed -e "/extraenv/s/^/#/g" -e "/import \/init.\${ro.hardware}.rc/s/^/#/" -e "/ro.zygote/s/^/#/g" -e "/start update_verifier/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc || log "Couldn't fix-up init script!"
 rm $ROOT/init.extraenv.armeabi-v7a.rc
-(sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc && sed -e "s/cpus 0/cpuset.cpus 0/g" -e "s/mems 0/cpuset.mems 0/g" -i $INIT_PERF) || log "Couldn't fix-up init scripts!"
 
 log "Disabling forced encryption in vendor fstab..."
-sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom || log "Couldn't disable forced encryption!"
+(umount /vendor &> /dev/null; mount -o rw /vendor && sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom) || log "Couldn't disable forced encryption!"
+umount /vendor &
 
 log "Backing up droid-boot image..."
 dd if=/dev/block/bootdevice/by-name/boot of=$ROOT/boot/droid-boot.img
 
 log "Writing hybris-boot image..."
-dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 9 "Couldn't write Hybris boot image!"
+dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 12 "Couldn't write Hybris boot image!"
 
 # <<< Script <<<
 
