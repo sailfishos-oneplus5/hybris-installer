@@ -54,7 +54,7 @@ mount | grep -q "/data.*ext4" || abort 4 "Data is NOT formatted as ext4; check o
 
 # Android
 (mount | grep -q /system || mount /system) || abort 6 "Couldn't mount /system!"
-if [ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` = "$TARGET_LOS_VER" ]; then
+if [ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` != "$TARGET_LOS_VER" ]; then
 	if [ ! -f $FILES/flash_confirm ]; then
 		touch $FILES/flash_confirm
 		abort 8 "If you don't know what you're doing: please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip. Otherwise reflash again to confirm force flashing of SFOS."
