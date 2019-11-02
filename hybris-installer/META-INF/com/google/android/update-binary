@@ -56,22 +56,22 @@ mount | grep -q "/data.*ext4" || abort 4 "Data is NOT formatted as ext4; check o
 # Android
 (mount | grep -q /system || mount /system) || abort 6 "Couldn't mount /system!"
 if [ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` != "$TARGET_LOS_VER" ]; then
-	if [ ! -f $FILES/flash_confirm ]; then
-		touch $FILES/flash_confirm
+	if [ ! -f /tmp/sfos_flash_confirm ]; then
+		touch /tmp/sfos_flash_confirm
 		abort 8 "If you don't know what you're doing: please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip. Otherwise reflash again to confirm force flashing of SFOS."
 	fi
 	log "About to perform forced flash of SFOS"
 fi
 [ -f /system/bin/toybox ] || abort 9 "Your ROM doesn't ship with toybox; extracting of SFOS rootfs isn't possible!"
 if [ -f $ROOT/etc/os-release ]; then
-	if [ ! -f $FILES/fresh_confirm ]; then
-		touch $FILES/fresh_confirm
+	if [ ! -f /tmp/sfos_fresh_confirm ]; then
+		touch /tmp/sfos_fresh_confirm
 		abort 10 "This zip is NOT an OTA and should not be treated like one. Please reflash once more to confirm a full SFOS reinstall!"
 	fi
 	FORCE_REINSTALL=1
 	log "About to perform forced reinstall of SFOS"
 fi
-rm -f $FILES/f{la,re}sh_confirm
+rm -f /tmp/sfos_f{la,re}sh_confirm
 
 # <<< Sanity checks <<<
 
