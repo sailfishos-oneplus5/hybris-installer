@@ -69,7 +69,8 @@ if [ -f $ROOT/etc/os-release ]; then
 		abort 10 "This zip is NOT an OTA and should not be treated like one. Please reflash once more to confirm a full SFOS reinstall!"
 	fi
 	FORCE_REINSTALL=1
-	log "About to perform forced reinstall of SFOS"
+	log "About to perform forced reinstall of SFOS; preserving droid-boot image..."
+	mv $ROOT/boot/droid-boot.img /tmp/
 fi
 rm -f /tmp/sfos_f{la,re}sh_confirm
 
@@ -129,16 +130,21 @@ mkdir -p $ROOT/
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
-sed -e "/extraenv/s/^/#/g" -e "/import \/init.\${ro.hardware}.rc/s/^/#/" -e "/ro.zygote/s/^/#/g" -e "/start update_verifier/s/^/#/g" -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" -i $ROOT/init.rc || log "Couldn't fix-up init script!"
+sed -e "/extraenv/s/^/#/g" -e "/import \/init.\${ro.hardware}.rc/s/^/#/" -e "/ro.zygote/s/^/#/g" -e "/start update_verifier/s/^/#/g" \
+    -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" \
+    -i $ROOT/init.rc || log "Couldn't fix-up init script!"
 rm $ROOT/init.extraenv.armeabi-v7a.rc
 
 log "Disabling forced encryption in vendor fstab..."
 (umount /vendor &> /dev/null; mount -o rw /vendor && sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom) || log "Couldn't disable forced encryption!"
 umount /vendor &
 
-if [ "$FORCE_REINSTALL" = "0" ] || [[ "$FORCE_REINSTALL" = "1" && -f $ROOT/boot/droid_target ]]; then
+if [ "$FORCE_REINSTALL" = "0" ]; then
 	log "Backing up droid-boot image..."
 	dd if=/dev/block/bootdevice/by-name/boot of=$ROOT/boot/droid-boot.img
+elif [ -f /tmp/droid-boot.img ]; then
+	log "Moving back droid-boot image..."
+	mv /tmp/droid-boot.img $ROOT/boot/
 fi
 
 log "Writing hybris-boot image..."
