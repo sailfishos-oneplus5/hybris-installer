@@ -42,6 +42,7 @@ FORCE_REINSTALL=0
 # >>> Sanity checks >>>
 
 # Device
+[ -z "$CURRENT_DEVICE" ] && CURRENT_DEVICE=`getprop ro.build.product`
 [ "$CURRENT_DEVICE" != "$TARGET_DEVICE" ] && abort 7 "This package is for '$TARGET_DEVICE' devices; this is a '$CURRENT_DEVICE'."
 
 # ext4 check for /cache & /data
