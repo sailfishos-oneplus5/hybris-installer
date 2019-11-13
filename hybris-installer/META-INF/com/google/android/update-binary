@@ -31,43 +31,52 @@ abort() { ui_print "E$1: $2"; cleanup; exit $1; }
 
 # <<< TWRP init <<<
 
+# >>> Custom functions >>>
+
+# Verify device boardname validity (e.g. not unset, no spaces / uppercase chars)
+invalid_device() { [[ -z "$CURRENT_DEVICE" || "$CURRENT_DEVICE" = *" "* || "$CURRENT_DEVICE" =~ [A-Z] ]]; }
+
+# <<< Custom functions <<<
+
 # Constants & variables
 VERSION="%VERSION%" # e.g. "3.2.0.12 (Torronsuo)"
 TARGET_LOS_VER="%LOS_VER%" # e.g. "16.0"
 TARGET_DEVICE="%DEVICE%" # e.g. "cheeseburger"
-CURRENT_DEVICE=`getprop ro.product.device`
+CURRENT_DEVICE=`getprop ro.omni.device`
 ROOT="/data/.stowaways/sailfishos"
 FORCE_REINSTALL=0
 
 # >>> Sanity checks >>>
 
 # Device
-[ -z "$CURRENT_DEVICE" ] && CURRENT_DEVICE=`getprop ro.build.product`
+invalid_device && CURRENT_DEVICE=`getprop ro.product.device`
+invalid_device && CURRENT_DEVICE=`getprop ro.build.product`
 [ "$CURRENT_DEVICE" != "$TARGET_DEVICE" ] && abort 7 "This package is for '$TARGET_DEVICE' devices; this is a '$CURRENT_DEVICE'."
 
-# ext4 check for /cache & /data
-(mount | grep -q /cache || mount /cache) || abort 1 "Couldn't mount /cache!"
-mount | grep -q "/cache.*ext4" || abort 2 "Cache is NOT formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
-(mount | grep -q /data || mount /data) || abort 3 "Couldn't mount /data; running e2fsck and rebooting may help."
-mount | grep -q "/data.*ext4" || abort 4 "Data is NOT formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
+# ext4 check for /data (& /cache)
+(mount | grep -q /cache || mount /cache) &&
+	(mount | grep -q "/cache.*ext4" || abort 1 "Cache is NOT formatted as ext4; check out 'Wipe > Advanced' from TWRP!") ||
+	log "Couldn't mount /cache! Is this an A/B device by any chance?"
+(mount | grep -q /data || mount /data) || abort 2 "Couldn't mount /data; running e2fsck and rebooting may help."
+mount | grep -q "/data.*ext4" || abort 3 "Data is NOT formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
 
 # Treble
-[ -r /dev/block/bootdevice/by-name/vendor ] || abort 5 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
+[ -r /dev/block/bootdevice/by-name/vendor ] || abort 4 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
 
 # Android
-(mount | grep -q /system || mount /system) || abort 6 "Couldn't mount /system!"
+(mount | grep -q /system || mount /system) || abort 5 "Couldn't mount /system!"
 if [ `cat /system/build.prop | grep lineage.build.version= | cut -d'=' -f2` != "$TARGET_LOS_VER" ]; then
 	if [ ! -f /tmp/sfos_flash_confirm ]; then
 		touch /tmp/sfos_flash_confirm
-		abort 8 "If you don't know what you're doing: please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip. Otherwise reflash again to confirm force flashing of SFOS."
+		abort 6 "If you don't know what you're doing: please factory reset & dirty flash LineageOS $TARGET_LOS_VER before this zip. Otherwise reflash again to confirm force flashing of SFOS."
 	fi
 	log "About to perform forced flash of SFOS"
 fi
-[ -f /system/bin/toybox ] || abort 9 "Your ROM doesn't ship with toybox; extracting of SFOS rootfs isn't possible!"
+[ -f /system/bin/toybox ] || abort 8 "Your ROM doesn't ship with toybox; extracting of SFOS rootfs isn't possible!"
 if [ -f $ROOT/etc/os-release ]; then
 	if [ ! -f /tmp/sfos_fresh_confirm ]; then
 		touch /tmp/sfos_fresh_confirm
-		abort 10 "This zip is NOT an OTA and should not be treated like one. Please reflash once more to confirm a full SFOS reinstall!"
+		abort 9 "This zip is NOT an OTA and should not be treated like one. Please reflash once more to confirm a full SFOS reinstall!"
 	fi
 	FORCE_REINSTALL=1
 	log "About to perform forced reinstall of SFOS; preserving droid-boot image..."
@@ -127,7 +136,7 @@ log "Extracting SFOS rootfs..."
 ARCHIVE="$FILES/sfos-rootfs.tar.bz2"
 rm -rf $ROOT/
 mkdir -p $ROOT/
-/system/bin/toybox tar -xj -f $ARCHIVE -C $ROOT/ || abort 11 "Couldn't extract SFOS rootfs!"
+/system/bin/toybox tar -xj -f $ARCHIVE -C $ROOT/ || abort 10 "Couldn't extract SFOS rootfs!"
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
@@ -149,7 +158,7 @@ elif [ -f /tmp/droid-boot.img ]; then
 fi
 
 log "Writing hybris-boot image..."
-dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 12 "Couldn't write Hybris boot image!"
+dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 11 "Couldn't write Hybris boot image!"
 
 # <<< Script <<<
 
