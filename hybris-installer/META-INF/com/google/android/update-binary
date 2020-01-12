@@ -39,8 +39,8 @@ invalid_device() { [[ -z "$CURRENT_DEVICE" || "$CURRENT_DEVICE" = *" "* || `echo
 # <<< Custom functions <<<
 
 # Constants & variables
-VERSION="%VERSION%" # e.g. "3.2.0.12 (Torronsuo)"
-TARGET_LOS_VER="%LOS_VER%" # e.g. "16.0"
+VERSION="%VERSION%" # e.g. "3.2.1.20 (Nuuksio)"
+TARGET_LOS_VER="%LOS_VER%" # e.g. "15.1"
 TARGET_DEVICE="%DEVICE%" # e.g. "cheeseburger"
 CURRENT_DEVICE=`getprop ro.omni.device`
 ROOT="/data/.stowaways/sailfishos"
@@ -140,7 +140,7 @@ mkdir -p $ROOT/
 rm $ARCHIVE
 
 log "Fixing up init scripts..."
-sed -e "/extraenv/s/^/#/g" -e "/import \/init.\${ro.hardware}.rc/s/^/#/" -e "/ro.zygote/s/^/#/g" -e "/start update_verifier/s/^/#/g" \
+sed -e "/extraenv/s/^/#/g" -e "/ro.hardware/s/^/#/g" -e "/ro.zygote/s/^/#/g" -e "/start update_verifier/s/^/#/g" \
     -e "s/\/cpus\ /\/cpuset.cpus /g" -e "s/\/cpus$/\/cpuset.cpus/g" -e "s/\/mems\ /\/cpuset.mems /g" -e "s/\/mems$/\/cpuset.mems/g" \
     -i $ROOT/init.rc || log "Couldn't fix-up init script!"
 rm $ROOT/init.extraenv.armeabi-v7a.rc
