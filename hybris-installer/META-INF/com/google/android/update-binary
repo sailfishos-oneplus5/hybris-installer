@@ -160,6 +160,10 @@ fi
 log "Writing hybris-boot image..."
 dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot || abort 11 "Couldn't write Hybris boot image!"
 
+log "Symlinking boot images to /sdcard..."
+ln -s $ROOT/boot/droid-boot.img /sdcard/
+ln -s $ROOT/boot/hybris-boot.img /sdcard/
+
 # <<< Script <<<
 
 # Succeeded.
