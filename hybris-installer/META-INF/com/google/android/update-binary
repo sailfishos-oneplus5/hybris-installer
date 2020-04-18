@@ -43,6 +43,7 @@ VERSION="%VERSION%" # e.g. "3.2.0.12 (Torronsuo)"
 TARGET_LOS_VER="%LOS_VER%" # e.g. "16.0"
 TARGET_DEVICE="%DEVICE%" # e.g. "cheeseburger"
 CURRENT_DEVICE=`getprop ro.omni.device`
+START_SECS=`date +'%s'`
 ROOT="/data/.stowaways/sailfishos"
 FORCE_REINSTALL=0
 
@@ -92,9 +93,9 @@ rm -f /tmp/sfos_f{la,re}sh_confirm
 set_progress 0
 
 # Calculate centering offset indent on left
-offset=`echo -n $VERSION | wc -m` # Character length of the version string
-offset=`expr 52 - 23 - $offset`   # Remove constant string chars from offset calculation
-offset=`expr $offset / 2`         # Get left offset char count instead of space on both sides
+offset=`echo -n $VERSION | wc -m 2> /dev/null` # Character length of the version string
+offset=`expr 52 - 23 - $offset`                # Remove constant string chars from offset calculation
+offset=`expr $offset / 2`                      # Get left offset char count instead of space on both sides
 
 # Build the left side indentation offset string
 for i in `seq 1 $offset`; do indent="${indent} "; done
@@ -168,7 +169,30 @@ ln -s $ROOT/boot/hybris-boot.img /sdcard/
 
 # Succeeded.
 log "Sailfish OS installed successfully."
-ui_print "            All done, enjoy your new OS!"
+
+# Prepare string for elapsed install time
+end_secs=`date +'%s'`
+elapsed_secs=`expr $end_secs - $START_SECS`
+time_string="" # e.g. "3m 32s"
+if [ "$elapsed_secs" -gt 60 ]; then
+	time_mins=`expr $elapsed_secs / 60`
+	time_secs=`expr $elapsed_secs - $time_mins \* 60`
+	if [ "$time_secs" -gt 0 ]; then
+		time_string="${time_mins}m ${time_secs}s"
+	else
+		time_string="${time_mins}m"
+	fi
+else
+	time_string="${elapsed_secs}s"
+fi
+
+# Center the "All done" text
+offset=`echo -n $time_string | wc -m 2> /dev/null`
+offset=`expr 52 - 33 - $offset`
+offset=`expr $offset / 2`
+for i in `seq 1 $offset`; do indent="${indent} "; done
+
+ui_print "${indent}All done in ~${time_string}, enjoy your new OS!"
 ui_print
 cleanup
 exit 0
