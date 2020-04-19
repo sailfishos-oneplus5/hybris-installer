@@ -190,6 +190,7 @@ fi
 offset=`echo -n $time_string | wc -m 2> /dev/null`
 offset=`expr 52 - 33 - $offset`
 offset=`expr $offset / 2`
+indent=""
 for i in `seq 1 $offset`; do indent="${indent} "; done
 
 ui_print "${indent}All done in ~${time_string}, enjoy your new OS!"
