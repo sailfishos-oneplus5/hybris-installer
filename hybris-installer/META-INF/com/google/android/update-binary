@@ -49,6 +49,7 @@ FORCE_REINSTALL=0
 PARTITION_PREFIX="/dev/block/bootdevice/by-name"
 PARTITION_BOOT="$PARTITION_PREFIX/boot"
 PARTITION_VENDOR="$PARTITION_PREFIX/vendor"
+PARTITION_PERSIST="$PARTITION_PREFIX/persist"
 
 # >>> Sanity checks >>>
 
@@ -152,6 +153,18 @@ rm $ROOT/init.extraenv.armeabi-v7a.rc
 log "Disabling forced encryption in vendor fstab..."
 (umount /vendor &> /dev/null; mount -o rw /vendor && sed "s/fileencryption/encryptable/" -i /vendor/etc/fstab.qcom) || log "Couldn't disable forced encryption!"
 umount /vendor &
+
+if [[ "$TARGET_LOS_VER" = "16.0" && ! -f $ROOT/lib/systemd/system/mnt-vendor-persist.mount ]]; then
+	log "Mount unit for persist not found; copying current /persist to rootfs..."
+	mkdir -p $ROOT/mnt/vendor/persist /persist
+	if mount $PARTITION_PERSIST /persist; then
+		cp -a /persist/ $ROOT/mnt/vendor/
+		umount /persist
+	else
+		log "Couldn't mount $PARTITION_PERSIST! Skipping copying..."
+	fi
+	rmdir /persist
+fi
 
 if [ "$FORCE_REINSTALL" = "0" ]; then
 	log "Backing up droid-boot image..."
