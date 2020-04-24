@@ -46,6 +46,9 @@ CURRENT_DEVICE=`getprop ro.omni.device`
 START_SECS=`date +'%s'`
 ROOT="/data/.stowaways/sailfishos"
 FORCE_REINSTALL=0
+PARTITION_PREFIX="/dev/block/bootdevice/by-name"
+PARTITION_BOOT="$PARTITION_PREFIX/boot"
+PARTITION_VENDOR="$PARTITION_PREFIX/vendor"
 
 # >>> Sanity checks >>>
 
@@ -62,7 +65,7 @@ invalid_device && CURRENT_DEVICE=`getprop ro.build.product`
 mount | grep -q "/data.*ext4" || abort 3 "Data is NOT formatted as ext4; check out 'Wipe > Advanced' from TWRP!"
 
 # Treble
-[ -r /dev/block/bootdevice/by-name/vendor ] || abort 4 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
+[ -r $PARTITION_VENDOR ] || abort 4 "A vendor partition doesn't exist; you need to do an OTA from OxygenOS 5.1.5 to 5.1.6!"
 
 # Android
 (mount | grep -q /system || mount /system) || abort 5 "Couldn't mount /system!"
@@ -152,14 +155,14 @@ umount /vendor &
 
 if [ "$FORCE_REINSTALL" = "0" ]; then
 	log "Backing up droid-boot image..."
-	dd if=/dev/block/bootdevice/by-name/boot of=$ROOT/boot/droid-boot.img bs=4m
+	dd if=$PARTITION_BOOT of=$ROOT/boot/droid-boot.img bs=4m
 elif [ -f /tmp/droid-boot.img ]; then
 	log "Moving back droid-boot image..."
 	mv /tmp/droid-boot.img $ROOT/boot/
 fi
 
 log "Writing hybris-boot image..."
-dd if=$ROOT/boot/hybris-boot.img of=/dev/block/bootdevice/by-name/boot bs=4m || abort 11 "Couldn't write Hybris boot image!"
+dd if=$ROOT/boot/hybris-boot.img of=$PARTITION_BOOT bs=4m || abort 11 "Couldn't write Hybris boot image!"
 
 log "Symlinking boot images to /sdcard..."
 ln -s $ROOT/boot/droid-boot.img /sdcard/
