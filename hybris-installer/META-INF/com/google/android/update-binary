@@ -1,4 +1,4 @@
-Doesn't flash yet. Appears to be unable to extract rootfs. Looks like a typ#!/sbin/sh
+#!/sbin/sh
 # An extensible custom Hybris Installer script.
 # https://git.io/fjMH9
 
