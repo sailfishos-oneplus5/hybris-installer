@@ -163,7 +163,6 @@ if [[ "$TARGET_LOS_VER" = "16.0" && ! -f $ROOT/lib/systemd/system/mnt-vendor-per
 	else
 		log "Couldn't mount $PARTITION_PERSIST! Skipping copying..."
 	fi
-	rmdir /persist
 fi
 
 if [ "$FORCE_REINSTALL" = "0" ]; then
