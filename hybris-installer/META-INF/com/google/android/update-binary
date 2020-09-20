@@ -31,18 +31,11 @@ abort() { ui_print "E$1: $2"; cleanup; exit $1; }
 
 # <<< TWRP init <<<
 
-# >>> Custom functions >>>
-
-# Verify device boardname validity (e.g. not unset, no spaces / uppercase chars)
-invalid_device() { [[ -z "$CURRENT_DEVICE" || "$CURRENT_DEVICE" = *" "* || `echo "$CURRENT_DEVICE" | grep -q [A-Z]` ]]; }
-
-# <<< Custom functions <<<
-
 # Constants & variables
 VERSION="%VERSION%" # e.g. "3.2.0.12 (Torronsuo)"
 TARGET_LOS_VER="%LOS_VER%" # e.g. "16.0"
 TARGET_DEVICE="%DEVICE%" # e.g. "cheeseburger"
-CURRENT_DEVICE=`getprop ro.omni.device`
+CURRENT_DEVICE=`getprop ro.product.device`
 START_SECS=`date +'%s'`
 ROOT="/data/.stowaways/sailfishos"
 FORCE_REINSTALL=0
@@ -54,8 +47,6 @@ PARTITION_PERSIST="$PARTITION_PREFIX/persist"
 # >>> Sanity checks >>>
 
 # Device
-invalid_device && CURRENT_DEVICE=`getprop ro.product.device`
-invalid_device && CURRENT_DEVICE=`getprop ro.build.product`
 [ "$CURRENT_DEVICE" != "$TARGET_DEVICE" ] && abort 7 "This package is for '$TARGET_DEVICE' devices; this is a '$CURRENT_DEVICE'."
 
 # ext4 check for /data (& /cache)
