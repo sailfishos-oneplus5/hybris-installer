@@ -32,7 +32,7 @@ abort() { ui_print "E$1: $2"; cleanup; exit $1; }
 # <<< TWRP init <<<
 
 # Constants & variables
-VERSION="%VERSION%" # e.g. "3.2.0.12 (Torronsuo)"
+VERSION="%VERSION_ID%" # e.g. "3.4.0.24"
 TARGET_LOS_VER="%LOS_VER%" # e.g. "16.0"
 TARGET_DEVICE="%DEVICE%" # e.g. "cheeseburger"
 CURRENT_DEVICE=`getprop ro.product.device`
